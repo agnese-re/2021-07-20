@@ -6,7 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import it.polito.tdp.yelp.model.Adiacenza;
 import it.polito.tdp.yelp.model.Business;
 import it.polito.tdp.yelp.model.Review;
 import it.polito.tdp.yelp.model.User;
@@ -111,5 +113,55 @@ public class YelpDao {
 		}
 	}
 	
+	public List<User> getVertici(Map<String,User> idMap, int numeroReviews) {
+		String sql = "SELECT user_id "
+				+ "FROM reviews "
+				+ "WHERE user_id IN(SELECT user_id "
+				+ "						FROM users) "
+				+ "GROUP BY user_id "
+				+ "HAVING COUNT(*) >= ?";
+		List<User> result = new ArrayList<User>();
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, numeroReviews);
+			ResultSet rs = st.executeQuery();
+			
+			while(rs.next())
+				result.add(idMap.get(rs.getString("user_id")));
+			
+			conn.close();
+			return result;
+		} catch(SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 	
+	public List<Adiacenza> getArchi(int numeroReviews, int anno, Map<String,User> idMap) {
+		String sql = "SELECT r1.user_id AS id1, r2.user_id AS id2, COUNT(*) AS simDegree "
+				+ "FROM reviews r1, reviews r2 "
+				+ "WHERE YEAR(r1.review_date) = ? "
+				+ "	AND YEAR(r2.review_date) = YEAR(r1.review_date) "
+				+ "	AND r1.business_id = r2.business_id "
+				+ "	AND r1.user_id > r2.user_id "
+				+ "GROUP BY r1.user_id,r2.user_id";
+		List<Adiacenza> result = new ArrayList<Adiacenza>();
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, anno);
+			ResultSet rs = st.executeQuery();
+			
+			while(rs.next())
+				result.add(new Adiacenza(idMap.get(rs.getString("id1")),
+						idMap.get(rs.getString("id2")), rs.getInt("simDegree")));
+			
+			conn.close();
+			return result;
+		} catch(SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 }
